@@ -22,9 +22,10 @@ import tyro
 
 from p2_env import P2Env
 from p2_teleop.p2.p2_math_utils import AngleType
+from p2_teleop.constants import DEFAULT_YAWING_GRIPPER_RESET_POSITION, DEFAULT_LEFT_IP, DEFAULT_RIGHT_IP, LEFT_START_CONFIG
 
 import sys
-sys.path.append("/opt/bg/ws/src/bg_p2/groot/Isaac-GR00T")
+sys.path.append("/opt/bg/ws/src/Isaac-GR00T")
 from gr00t.data.embodiment_tags import EMBODIMENT_TAG_MAPPING
 from gr00t.eval.robot import RobotInferenceClient, RobotInferenceServer
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
@@ -81,16 +82,17 @@ def main(args: ArgsConfig):
 
 
     #Define the robot environment
-    # p2_env = P2Env(freq=30,  # Frequency of the environment
-    #                is_delta_actions=False,  # Whether the actions are delta actions
-    #                angle_type=AngleType.AXANGLE,  # Type of angle representation
-    #                use_blocking_move=True,  # Whether to use blocking move commands
-    #                sleep_after_move=0.2,  # Time to sleep after a move command
-    #                left_reset_config=None,  # Configuration for resetting the left arm
-    #                right_reset_config=None,  # Configuration for resetting the right arm
-    #                yawing_gripper_reset_position=0.0,  # Yawing gripper reset position
-    #                modality_config=modality_config
-    #            )
+    p2_env = P2Env(freq=30,  # Frequency of the environment
+                   is_delta_actions=False,  # Whether the actions are delta actions
+                   angle_type=AngleType.AXANGLE,  # Type of angle representation
+                   use_blocking_move=False,  # Whether to use blocking move commands
+                   sleep_after_move=0.2,  # Time to sleep after a move command
+                   left_reset_config=LEFT_START_CONFIG,  # Configuration for resetting the left arm
+                   right_reset_config=None,  # Configuration for resetting the right arm
+                   yawing_gripper_reset_position=1.55,  # Yawing gripper reset position
+                   modality_config=modality_config,
+                   left_agent_ip=DEFAULT_LEFT_IP,  # IP address for the left agent
+               )
 
     policy = Gr00tPolicy(
         model_path=args.model_path,
@@ -125,7 +127,7 @@ def main(args: ArgsConfig):
         "state.wrist": np.random.rand(1, 3),
     }
 
-    # obs, _ = p2_env.reset()  # Reset the environment to start fresh
+    obs, _ = p2_env.reset()  # Reset the environment to start fresh
     while True:
         time_start = time.time()
         action = policy.get_action(obs)

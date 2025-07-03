@@ -123,18 +123,20 @@ class P2Env:
         servo_dt=0.2,
         ah_t=0.1,
         gain=20,
+        left_agent_ip: str = "192.168.10.30"
     ):
         ##################################
 
-        # self.left_agent = QuestP2ArmHFGAgent(
-        #     which_hand="r",
-        #     which_robot="l",
-        #     event_manager=None,
-        #     oculus_reader=None,
-        #     start=False,
-        #     yawing_gripper_reset_position=yawing_gripper_reset_position,
-        # )
+        self.left_agent = QuestP2ArmHFGAgent(
+            which_hand="r",
+            which_robot="l",
+            event_manager=None,
+            oculus_reader=None,
+            start=False,
+            yawing_gripper_reset_position=yawing_gripper_reset_position,
+        )
 
+        self.start_valve()
 
         ##################################
         self.use_blocking_move = use_blocking_move
@@ -150,8 +152,8 @@ class P2Env:
         self.outer_loop_delay = outer_loop_delay
 
         self.camera_configs = [
-            {'serial': 57366562, 'is_gmsl': True, 'sender_ip': '192.168.10.40', 'port': 40000, 'cam_name': 'hfg_left'},   # GMSL camera 0
-            {'serial': 54832066, 'is_gmsl': True, 'sender_ip': '192.168.10.40', 'port': 30000, 'cam_name': 'hfg_right'},   # GMSL camera 1
+            {'serial': 59059530, 'is_gmsl': True, 'sender_ip': '192.168.10.40', 'port': 30000, 'cam_name': 'hfg_left'},   # GMSL camera 0
+            {'serial': 59819861, 'is_gmsl': True, 'sender_ip': '192.168.10.40', 'port': 20000, 'cam_name': 'hfg_right'},   # GMSL camera 1
         ]
         self.camera_system = ZEDMultiCameraSystem(self.camera_configs)
         self.camera_system.setup()
@@ -169,7 +171,10 @@ class P2Env:
         self.servo_dt = servo_dt
         self.ah_t = ah_t
         self.gain = gain
-        self.scale = 1.0
+        self.scale = 7.0
+        self.left_agent_ip = left_agent_ip
+
+        self.iteration = 0
 
     # def start_recording(self, video_dir, video_name_no_ext):
     #     video_paths = {}
@@ -193,19 +198,19 @@ class P2Env:
 
         print("Resetting P2Env...")
 
-        # self.left_agent._hfg_grip(grip=False)
-        # self.left_agent.reset_yawing_motor_pose()
-        # blocking_moveJ(
-        #     self.left_reset_config,
-        #     v=0.3,
-        #     a=0.3,
-        #     ip=self.left_agent.ip,
-        #     timeout=15.0,
-        # )
+        self.left_agent._hfg_grip(grip=False)
+        self.left_agent.reset_yawing_motor_pose()
+        blocking_moveJ(
+            self.left_reset_config,
+            v=0.3,
+            a=0.3,
+            ip=self.left_agent.ip,
+            timeout=15.0,
+        )
 
         # self.right_agent.get_hand_open_closed_qs()
         # self.right_agent.blocking_open_in_passthrough()
-        # TODO: enable reset right arm joint positions once we have that in the state
+        # # TODO: enable reset right arm joint positions once we have that in the state
         # blocking_moveJ(
         #     self.right_reset_config,
         #     v=0.1,
@@ -225,29 +230,29 @@ class P2Env:
 
         # left_agent_obs = self.left_agent.get_obs()
 
-        images = self.camera_system.grab_all()
-        left_arm_pose = self.get_current_pose()
+        # images = self.camera_system.grab_all()
+        # left_arm_pose = self.get_current_pose()
 
         images = self.camera_system.grab_all()
         left_arm_pos, left_arm_rot = self.get_current_pose()
-        # left_agent_obs = self.left_agent.get_obs()
+        left_agent_obs = self.left_agent.get_obs()
 
         # Ensure images are in the correct shape and dtype
-        if images[57366562] is not None:
-            current_obs['video.hfg_left'] = images[57366562][None, :, :, :3].astype(np.uint8)
+        if images[59059530] is not None:
+            current_obs['video.hfg_left'] = images[59059530][None, :, :, :3].astype(np.uint8)
         else:
             current_obs['video.hfg_left'] = np.zeros((1, 1200, 1920, 3), dtype=np.uint8)
 
-        if images[54832066] is not None:
-            current_obs['video.hfg_right'] = images[54832066][None, :, :, :3].astype(np.uint8)
+        if images[59819861] is not None:
+            current_obs['video.hfg_right'] = images[59819861][None, :, :, :3].astype(np.uint8)
         else:
             current_obs['video.hfg_right'] = np.zeros((1, 1200, 1920, 3), dtype=np.uint8)
 
         # Ensure state vectors are (1, 3) arrays
         current_obs['state.ee_pos'] = np.array(left_arm_pos, dtype=np.float32).reshape(1, 3)
         current_obs['state.ee_rot'] = np.array(left_arm_rot, dtype=np.float32).reshape(1, 3)
-        # current_obs['state.wrist'] = np.array([left_agent_obs['wrist_pressure_bar'], left_agent_obs['wrist_gripper_proximity'], left_agent_obs['wrist_cup_sensor']], dtype=np.float32).reshape(1, 3)
-        current_obs['state.wrist'] = np.array([np.random.rand(), np.random.rand(), np.random.rand()], dtype=np.float32).reshape(1, 3)
+        current_obs['state.wrist'] = np.array([left_agent_obs['wrist_pressure_bar']['value'], left_agent_obs['wrist_gripper_proximity']['value'], left_agent_obs['wrist_cup_sensor']['value']], dtype=np.float32).reshape(1, 3)
+        # current_obs['state.wrist'] = np.array([np.random.rand(), np.random.rand(), np.random.rand()], dtype=np.float32).reshape(1, 3)
 
         # right_agent_obs = self.right_agent.get_obs()
 
@@ -261,10 +266,15 @@ class P2Env:
 
         valve_position = np.clip(action_valve, 0.0, 1.0)
 
-        # if self.left_agent.valve is not None:
-        #     self.left_agent.valve.command_position(
-        #         position=valve_position, slew_rate_scale=1.0
-        #     )
+        # if self.iteration % 10 == 0:
+        #     valve_position = 0
+        # if self.iteration % 20 == 0:
+        #     valve_position = 1
+
+        if self.left_agent.valve is not None:
+            self.left_agent.valve.command_position(
+                position=valve_position, slew_rate_scale=1.0
+            )
 
         if self.is_delta_actions:
             # TODO: re-observing the current pose might be a bad idea, since the obs the policy used
@@ -308,8 +318,18 @@ class P2Env:
             #     sleep(self.sleep_after_move)
             print("Blocking moveL")
         else:
+            current_observed_pose = np.zeros(6)
+            print("old pose:", current_observed_pose)
+            diana_api.getTcpPos(current_observed_pose, self.left_agent.ip)
+            if self.iteration % 2 == 0:
+                current_observed_pose[2] = current_observed_pose[2] + 0.015
+            else:
+                current_observed_pose[2] = current_observed_pose[2] - 0.015
+            print("new pose:", current_observed_pose)
+            self.iteration += 1
+
             diana_api.servoL(
-                ee_diana_pose,
+                current_observed_pose,
                 t=self.servo_dt,
                 ah_t=self.ah_t,
                 gain=self.gain,
@@ -344,12 +364,12 @@ class P2Env:
 
     def get_current_pose(self):
         current_observed_pose = np.zeros(6)
-        # diana_api.getTcpPos(current_observed_pose, self.left_agent.ip)
-        current_observed_pose = np.random.rand(6)  # Simulating a random pose for testing
+        diana_api.getTcpPos(current_observed_pose, self.left_agent.ip)
+        # current_observed_pose = np.random.rand(6)  # Simulating a random pose for testing
 
         # current_pos = current_observed_pose[0:3]
         # current_rot = axangle2mat(current_observed_pose[3:6])
-        # return current_pos, current_rot
+        # return current_pos, current_observed_pose[0:3]
         return current_observed_pose[0:3], current_observed_pose[3:6]
 
     def close(self):
