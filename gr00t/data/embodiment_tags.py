@@ -37,6 +37,10 @@ class EmbodimentTag(Enum):
     Any new embodiment for finetuning.
     """
 
+    P2 = "p2-dev-flashy"
+    """
+    P2 robot with diana api - currently only supports left arms - no waist or right arm
+    """
 
 # Embodiment tag string: to projector index in the Action Expert Module
 EMBODIMENT_TAG_MAPPING = {
@@ -44,4 +48,5 @@ EMBODIMENT_TAG_MAPPING = {
     EmbodimentTag.OXE_DROID.value: 17,
     EmbodimentTag.AGIBOT_GENIE1.value: 26,
     EmbodimentTag.GR1.value: 24,
+    EmbodimentTag.P2.value: 30, ## Dont know the significance of this value
 }

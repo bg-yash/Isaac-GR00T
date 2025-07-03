@@ -322,6 +322,7 @@ class LeRobotSingleDataset(Dataset):
 
         # 2. Dataset statistics
         stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME
+        print(f"Loading dataset statistics from {stats_path}")
         try:
             with open(stats_path, "r") as f:
                 le_statistics = json.load(f)

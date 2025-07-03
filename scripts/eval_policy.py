@@ -118,7 +118,7 @@ def main(args: ArgsConfig):
 
     print(len(dataset))
     # Make a prediction
-    obs = dataset[0]
+    obs = dataset[20]
     for k, v in obs.items():
         if isinstance(v, np.ndarray):
             print(k, v.shape)
